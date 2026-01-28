@@ -10,7 +10,7 @@
 🌐 **[Project Page](https://technology.robbyant.com/lingbot-depth)** |
 💻 **[Code](https://github.com/robbyant/lingbot-depth)** |
 🤗 **[Hugging Face](https://huggingface.co/collections/robbyant/lingbot-depth)** |
-🤖 **[ModelScope](https://www.modelscope.cn/collections/Robbyant/LingBot-Depth)**
+🤖 **[ModelScope](https://www.modelscope.cn/collections/Robbyant/LingBot-Depth)** ｜
 🤖 **[Video](https://www.bilibili.com/video/BV1oa6uBXEyh)**
 
 
