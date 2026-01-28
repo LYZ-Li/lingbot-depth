@@ -11,6 +11,7 @@
 💻 **[Code](https://github.com/robbyant/lingbot-depth)** |
 🤗 **[Hugging Face](https://huggingface.co/collections/robbyant/lingbot-depth)** |
 🤖 **[ModelScope](https://www.modelscope.cn/collections/Robbyant/LingBot-Depth)**
+🤖 **[Video](https://www.bilibili.com/video/BV1oa6uBXEyh)**
 
 
 **LingBot-Depth** transforms incomplete and noisy depth sensor data into high-quality, metric-accurate 3D measurements. By jointly aligning RGB appearance and depth geometry in a unified latent space, our model serves as a powerful spatial perception foundation for robot learning and 3D vision applications.
