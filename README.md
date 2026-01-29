@@ -53,15 +53,12 @@ We provide pretrained models for different scenarios:
 ```bash
 git clone https://github.com/robbyant/lingbot-depth
 cd lingbot-depth
-pip install -e .
+
+# Install the package (use 'python -m pip' to ensure correct environment)
+conda create -n lingbot-depth python=3.9
+conda activate lingbot-depth
+python -m pip install -e .
 ```
-<!-- 
-Or install dependencies only:
-
-```bash
-pip install -r requirements.txt
-``` -->
-
 ## Quick Start
 
 **Inference:**
@@ -101,13 +98,38 @@ points = output['points']      # 3D point cloud
 
 **Run example:**
 
-Download the model weight from [Hugging Face](https://huggingface.co/robbyant/lingbot-depth-pretrain-vitl-14/tree/main) and put it in the `ckpt` folder. Then run:
+The model is automatically downloaded from Hugging Face on first run (no manual download needed):
 
 ```bash
+# Basic usage - processes example 0
 python example.py
+
+# Use a different example (0-7 available)
+python example.py --example 1
+
+# Use depth completion optimized model
+python example.py --model robbyant/lingbot-depth-postrain-dc-vitl14
+
+# Custom output directory
+python example.py --output my_results
+
+# See all options
+python example.py --help
 ```
 
-This processes the example data from `examples/0/` and saves visualizations to `result/`.
+This processes the example data and saves results to `result/` (or custom directory):
+```
+result/
+├── rgb.png                 # Input RGB image
+├── depth_input.npy        # Input depth (float32, meters)
+├── depth_refined.npy      # Refined depth (float32, meters)
+├── depth_input.png        # Input depth visualization
+├── depth_refined.png      # Refined depth visualization
+├── depth_comparison.png   # Side-by-side comparison
+└── point_cloud.ply       # 3D point cloud
+```
+
+**Available examples:** 8 example scenes (0-7) included in `examples/` directory.
 
 ## Method
 
