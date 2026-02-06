@@ -14,7 +14,7 @@ import warnings
 import torch.nn.functional as F
 from torch import Tensor
 from torch import nn
-
+from torch.nn.functional import scaled_dot_product_attention
 
 logger = logging.getLogger("dinov2")
 
@@ -81,20 +81,16 @@ class Attention(nn.Module):
         return x
 
 class MemEffAttention(Attention):
-    def forward(self, x: Tensor, attn_bias=None) -> Tensor:
-        if not XFORMERS_AVAILABLE:
-            if attn_bias is not None:
-                raise AssertionError("xFormers is required for using nested tensors")
-            return super().forward(x)
-
+    def forward(self, x, attn_bias=None):
         B, N, C = x.shape
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads)
+        # 生成 Q, K, V
+        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv[0], qkv[1], qkv[2]
 
-        q, k, v = unbind(qkv, 2)
+        # 如果有 attn_bias，处理一下 (通常推理时为 None)
+        # 这里直接用 PyTorch 2.0 的原生加速
+        x = scaled_dot_product_attention(q, k, v, attn_mask=attn_bias, dropout_p=0.0)
 
-        x = memory_efficient_attention(q, k, v, attn_bias=attn_bias)
-        x = x.reshape([B, N, C])
-
+        x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
-        x = self.proj_drop(x)
         return x

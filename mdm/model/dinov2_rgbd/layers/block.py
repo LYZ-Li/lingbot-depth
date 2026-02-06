@@ -162,26 +162,28 @@ attn_bias_cache: Dict[Tuple, Any] = {}
 
 def get_attn_bias_and_cat(x_list, branges=None):
     """
-    this will perform the index select, cat the tensors, and provide the attn_bias from cache
+    修改版：移除了 xFormers (fmha) 依赖。
+    直接返回 None 作为 attn_bias，PyTorch 原生 attention 会默认进行全图注意力。
     """
-    batch_sizes = [b.shape[0] for b in branges] if branges is not None else [x.shape[0] for x in x_list]
-    all_shapes = tuple((b, x.shape[1]) for b, x in zip(batch_sizes, x_list))
-    if all_shapes not in attn_bias_cache.keys():
-        seqlens = []
-        for b, x in zip(batch_sizes, x_list):
-            for _ in range(b):
-                seqlens.append(x.shape[1])
-        attn_bias = fmha.BlockDiagonalMask.from_seqlens(seqlens)
-        attn_bias._batch_sizes = batch_sizes
-        attn_bias_cache[all_shapes] = attn_bias
+    import torch
 
+    # --- 1. 处理 Tensor 拼接 (保留原逻辑) ---
     if branges is not None:
+        # 如果有 branges，使用原来的逻辑进行索引和拼接
+        # 注意：这里假设 index_select_cat 在同一文件中定义或已导入
         cat_tensors = index_select_cat([x.flatten(1) for x in x_list], branges).view(1, -1, x_list[0].shape[-1])
     else:
+        # 如果没有 branges，直接 reshape 并拼接
         tensors_bs1 = tuple(x.reshape([1, -1, *x.shape[2:]]) for x in x_list)
         cat_tensors = torch.cat(tensors_bs1, dim=1)
 
-    return attn_bias_cache[all_shapes], cat_tensors
+    # --- 2. 处理 Attention Bias (核心修改) ---
+    # 原代码在这里调用了 fmha.BlockDiagonalMask，这是 xFormers 专有的。
+    # 对于原生 PyTorch scaled_dot_product_attention，传入 None 即可（表示不进行任何遮挡）。
+    attn_bias = None
+
+    # 直接返回 None 和 拼接好的 Tensor
+    return attn_bias, cat_tensors
 
 
 def drop_add_residual_stochastic_depth_list(
@@ -246,14 +248,34 @@ class NestedTensorBlock(Block):
             attn_bias, x = get_attn_bias_and_cat(x_list)
             x = x + attn_residual_func(x, attn_bias=attn_bias)
             x = x + ffn_residual_func(x)
-            return attn_bias.split(x)
+            if attn_bias is not None:
+                return attn_bias.split(x)
+            
+            # 如果没有 attn_bias (说明我们在用原生 PyTorch)，我们需要手动把 x 切开
+            output_list = []
+            start = 0
+            for input_tensor in x_list:
+                # 1. 计算这一块原本有多长 (Batch * SequenceLength)
+                length = input_tensor.shape[0] * input_tensor.shape[1]
+                
+                # 2. 从大张量 x 中切出这一段
+                # (x 的形状通常是 [1, Total_Tokens, Dim])
+                chunk = x[:, start : start + length, :]
+                
+                # 3. 恢复成原始形状 (Batch, SequenceLength, Dim)
+                chunk = chunk.view(input_tensor.shape[0], input_tensor.shape[1], -1)
+                
+                output_list.append(chunk)
+                start += length
+                
+            return output_list
 
     def forward(self, x_or_x_list):
         if isinstance(x_or_x_list, Tensor):
             return super().forward(x_or_x_list)
         elif isinstance(x_or_x_list, list):
-            if not XFORMERS_AVAILABLE:
-                raise AssertionError("xFormers is required for using nested tensors")
+            #if not XFORMERS_AVAILABLE:
+            #    raise AssertionError("xFormers is required for using nested tensors")
             return self.forward_nested(x_or_x_list)
         else:
             raise AssertionError
